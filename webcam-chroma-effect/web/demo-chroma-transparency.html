@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Demo Chroma effect </title>
+    <script>
+        var _requestAnimationFrame = requestAnimationFrame;
+        var _cancelAnimationFrame = cancelAnimationFrame;
+    </script>
+    <script src="https://webglfundamentals.org/webgl/resources/webgl-utils.js"></script>
+
+    <script id="green-vertex-shader" type="x-shader/x-vertex">
+        uniform float yLowerThreshold;
+        uniform float yUpperThreshold;
+        varying float v_yLowerThreshold;
+        varying float v_yUpperThreshold;
+        attribute vec2 a_position;
+
+        uniform vec2 u_resolution;
+        uniform mat3 u_matrix;
+
+        varying vec2 v_texCoord;
+        void main() {
+                        v_yLowerThreshold = yLowerThreshold;
+                        v_yUpperThreshold = yUpperThreshold;
+                        gl_Position = vec4(u_matrix * vec3(a_position, 1), 1);
+                        v_texCoord = a_position;
+        }
+    </script>
+
+
+    <script id="green-fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+
+        // our texture
+        uniform sampler2D u_image;
+
+        // the texCoords passed in from the vertex shader.
+        varying vec2 v_texCoord;
+
+        varying float v_yUpperThreshold;
+        varying float v_yLowerThreshold;
+        void main(){
+                        vec4 pixel = texture2D(u_image, v_texCoord);
+                        float alpha = 1.0;
+                        float r = pixel[0];
+                        float g = pixel[1];
+                        float b = pixel[2];
+                        float y =  0.299*r + 0.587*g + 0.114*b;
+                        float u = -0.147*r - 0.289*g + 0.436*b;
+                        float v =  0.615*r - 0.515*g - 0.100*b;
+                        if (y > v_yLowerThreshold && y < v_yUpperThreshold){
+                            alpha = (v+u)*40.0 +2.0;
+                        }
+                        pixel = vec4(pixel[0], pixel[1], pixel[2], alpha);
+                        if(pixel.a<0.1){
+                            gl_FragColor = vec4(0, 0, 0, 0.0);
+						}
+                        else{
+                            gl_FragColor = pixel ;
+						}
+        }
+    </script>
+	<link href="style.css" rel="stylesheet">
+		
+</head>
+<body>
+<h1>This is a chroma effect demo using your webcam</h1>
+<h2>What are you suppose to see ?</h2>
+<img src="screenshot2.png" style="width: 400px">
+<h2>How to use</h2>
+<ol>
+<li>Allow your browser to use your webcam</li>
+<li>Place something green in front of your webcam, it will be automatically removed</li>
+<li>Click the "Start recording" button to record a short sequence</li>
+<li>Click the "Stop recording" button</li>
+<li>Click the "Generate video" button and wait, your transparent webm video will be displayed in a popup</li>
+</ol>
+<h2>How it works</h2>
+<p>
+	It only uses the "navigator.getUserMedia" API to get your webcam stream, and processes it periodically using a WebGL program. The processed stream is recorded via the "MediaRecorder" API. Finally, we process the video with a Python script on our backend server.<br>
+	You can find the sources here: <a href ="https://github.com/saulnoz/instill-experiments/tree/master/webcam-chroma-effect">https://github.com/saulnoz/instill-experiments/tree/master/webcam-chroma-effect</a>
+</p>
+<h2>Demo</h2>
+<div>
+	<button id="startRecorderButton" onclick="startRecording()" style="visibility:hidden">Start recording</button>
+	<button id="stopRecorderButton" onclick="stopRecording()" style="visibility:hidden">Stop recording</button>
+	<button id="getVideoButton" onclick="getVideo()" style="visibility:hidden">Generate video</button>
+</div>
+<div>
+	<video id="original-video" style="width:400px;"></video>
+	<canvas id="vc-canvas" style="background-color:#EAEAEA"></canvas>
+</div>
+<div class="glass" id="information" style="display:none;">
+  <div class="information" id="message">Please wait, we are rendering your video...
+  </div>
+</div>
+<div class="glass" id="result" style="display:none;">
+  <div class="information-result" id="information-result">
+	  <div style="background-color:#FAFAFA;padding:20px 10px">Your video is rendered <br>Download here : <a id="download-link"></a></div>
+	  <video id="rendered-video" style="width:400px;" controls="true"></video><br>
+  	<button onclick="closePreview()">Close</button>
+  </div>
+</div>
+<script>
+
+    var stream;
+    var _video = document.querySelector("#original-video");
+    var canvas = document.querySelector('#vc-canvas');
+	var startRecorderButton = document.querySelector('#startRecorderButton');
+	var stopRecorderButton = document.querySelector('#stopRecorderButton');
+	var getVideoButton =  document.querySelector('#getVideoButton');
+	var gl ;
+    var program ;
+	var mediaRecorder;
+	var recordedBlobs = [];
+	var videoId ;
+	var timeoutId;
+
+    navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+    navigator.getUserMedia({ video: true }, successCallback, function(message){window.alert(message.toString());});
+
+    function successCallback (astream) {
+		stream = astream;
+        _video.src=(window.URL ? URL : webkitURL).createObjectURL(self.stream);
+        _video.play();
+        stream.getVideoTracks()[0].onended = function () {
+            if(mediaRecorder!=null) {
+                if (mediaRecorder.state == 'recording') {
+                    mediaRecorder.stop();
+                }
+            }
+        };
+        
+		stream.getVideoTracks()[0].onended = function () {
+            if (mediaRecorder.state == 'recording'){
+                mediaRecorder.stop();
+            }
+        };
+		        
+        var options = {mimeType: 'video/webm', bitsPerSecond: 128000};
+        if (window.navigator.userAgent.match('Firefox')) {
+            options = {mimeType: 'video/webm', bitsPerSecond: 1024000};
+        }
+        recordedBlobs = [];
+        try {
+            mediaRecorder = new MediaRecorder(stream, options);
+        } catch (e0) {
+            console.log('Unable to create MediaRecorder with options Object: ', e0);
+            try {
+                options = {mimeType: 'video/webm,codecs=vp9', bitsPerSecond: 128000};
+                mediaRecorder = new MediaRecorder(stream, options);
+            } catch (e1) {
+                console.log('Unable to create MediaRecorder with options Object: ', e1);
+                try {
+                    options = 'video/vp8'; // Chrome 47
+                    mediaRecorder = new MediaRecorder(stream, options);
+                } catch (e2) {
+                    window.alert('MediaRecorder is not supported by this browser.\n\n' +
+                        'Try Firefox 29 or later, or Chrome 49 or later, or chrome 47 and Enable experimental Web Platform features enabled from chrome://flags.');
+                }
+            }
+        }
+        mediaRecorder.ondataavailable = function (event) {
+            if (event.data && event.data.size > 0) {
+                recordedBlobs.push(event.data);
+            }
+        };
+
+		//Wait the initalization of the webcam
+        setTimeout(function() {
+            canvas.width = _video.getBoundingClientRect().width;
+            canvas.height = _video.getBoundingClientRect().height;
+            canvas.style.width = _video.getBoundingClientRect().width + "px";
+            canvas.style.height = _video.getBoundingClientRect().height + "px";
+			gl = getWebGLContext(canvas,null,{noTitle:true});
+		    // setup GLSL program
+		    program = createProgramFromScripts(gl, ["green-vertex-shader", "green-fragment-shader"]);
+		    gl.useProgram(program);
+			doRender(0);
+			startRecorderButton.style.visibility="visible";
+        },3000);
+    }
+
+    function doRender(num){
+        render(_video);
+        requestAnimationFrame(doRender);
+    }	
+		
+	function render(video) {
+
+        //Could vary to adapt the best green factor
+        var yLowerThreshold = gl.getUniformLocation(program, "yLowerThreshold");
+        gl.uniform1f (yLowerThreshold,0.2);
+
+        //Could vary to adapt the best green factor
+        var yUpperThreshold = gl.getUniformLocation(program, "yUpperThreshold");
+        gl.uniform1f (yUpperThreshold,0.8);
+
+        // look up where the vertex data needs to go.
+        var positionLocation = gl.getAttribLocation(program, "a_position");
+
+        // look up uniform locations
+        var u_imageLoc = gl.getUniformLocation(program, "u_image");
+        var u_matrixLoc = gl.getUniformLocation(program, "u_matrix");
+
+        // provide texture coordinates for the rectangle.
+        var positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            0.0,  0.0,
+            1.0,  0.0,
+            0.0,  1.0,
+            0.0,  1.0,
+            1.0,  0.0,
+            1.0,  1.0]), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        function setupTexture(canvas, textureUnit, program, uniformName) {
+            var tex = gl.createTexture();
+
+            updateTextureFromCanvas(tex, canvas, textureUnit);
+
+            // Set the parameters so we can render any size image.
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+            var location = gl.getUniformLocation(program, uniformName);
+            gl.uniform1i(location, textureUnit);
+        }
+
+        function updateTextureFromCanvas(tex, canvas, textureUnit) {
+            gl.activeTexture(gl.TEXTURE0 + textureUnit);
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+        }
+
+        var tex2 = setupTexture(video, 0, program, "u_matrixLoc");
+
+        var dstX = 0;
+        var dstY = 0;
+        var dstWidth = _video.getBoundingClientRect().width;
+        var dstHeight = _video.getBoundingClientRect().height;
+
+        // convert dst pixel coords to clipspace coords
+        var clipX = dstX / gl.canvas.width  *  2 - 1;
+        var clipY = dstY / gl.canvas.height * -2 + 1;
+        var clipWidth = dstWidth  / gl.canvas.width  *  2;
+        var clipHeight = dstHeight / gl.canvas.height * -2;
+
+        // build a matrix that will stretch our
+        // unit quad to our desired size and location
+        gl.uniformMatrix3fv(u_matrixLoc, false, [
+            clipWidth, 0, 0,
+            0, clipHeight, 0,
+            clipX, clipY, 1,
+        ]);
+
+        // Draw the rectangle.
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+
+	function startRecording(){
+		stopRecorderButton.style.visibility="visible";
+		startRecorderButton.style.visibility="hidden";
+		getVideoButton.style.visibility="hidden";
+		mediaRecorder.start(1000);
+		timeoutId = setTimeout(function() {
+			stopRecording();
+			window.alert("You exceed the 10s test... so we stopped the recording for you");
+		},10000);
+	}
+
+	function stopRecording(){
+		clearTimeout(timeoutId);
+		startRecorderButton.style.visibility="visible";
+		stopRecorderButton.style.visibility="hidden";
+		getVideoButton.style.visibility="visible";
+		if(mediaRecorder) {
+			mediaRecorder.stop();
+		}
+	}
+	
+	function getVideo(){
+		videoBlob = new Blob(recordedBlobs, {type: 'video/webm'});
+		uploadVideo(videoBlob);
+	}
+	
+	function uploadVideo( blob ) {
+		videoId = guid();
+		form = new FormData(),
+		request = new XMLHttpRequest();
+		form.append("fname",videoId + ".webm");
+		form.append("blob",blob,videoId + ".webm");
+		request.onreadystatechange=function(){
+			if (request.readyState==4 && request.status==200){
+				document.querySelector("#information").style.display="none";
+				document.querySelector("#result").style.display="block";
+				document.querySelector("#rendered-video").src = "../out/" + videoId + ".webm" ;
+				document.querySelector("#download-link").href="../out/" + videoId + ".webm" ;
+				document.querySelector("#download-link").innerText = videoId + ".webm";
+			}
+		}
+		request.open(
+			"POST",
+			"/processVideo",
+			true
+		);
+		document.querySelector("#information").style.display="block";
+		var body = document.body;
+	    var html = document.documentElement;
+		var height = Math.max( body.scrollHeight, body.offsetHeight, html.clientHeight, html.scrollHeight, html.offsetHeight );
+		document.querySelector("#information").style.height = height+"px";
+		document.querySelector("#result").style.height = height+"px";
+		var top = document.documentElement.scrollTop || document.body.scrollTop;
+		document.querySelector("#message").style.top=(top+100)+"px";
+		document.querySelector("#information-result").style.top=(top+100)+"px";
+		
+		request.send(form);
+	}
+	
+	function closePreview() {
+		document.querySelector("#result").style.display="none";
+	}
+	
+	function guid() {
+	    function _p8(s) {
+	        var p = (Math.random().toString(16)+"000000000").substr(2,8);
+	        return s ? "-" + p.substr(0,4) + "-" + p.substr(4,4) : p ;
+	    }
+	    return _p8() + _p8(true) + _p8(true) + _p8();
+	}
+
+</script>
+</body>
+</html>

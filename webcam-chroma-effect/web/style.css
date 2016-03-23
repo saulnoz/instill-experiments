@@ -1,0 +1,159 @@
+body {
+    background-color: white;
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 300;
+    font-size: 16px;
+    color: #303738;
+    -webkit-font-smoothing: antialiased;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* TITLES */
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 300;
+    color: #333;
+}
+
+h1 {
+	font-size: 40px;
+}
+
+h2 {
+    margin: 0.3em;
+}
+
+h3 {
+	font-weight: 400;
+}
+
+h4 {
+	color: #1b1b1b;
+	font-weight: 400;
+	font-size: 24px;
+}
+
+/* TYPO */
+
+p {
+    color: #7c8b8d;
+    font-weight: 400;
+    line-height: 28px;
+    margin-bottom: 25px;
+    font-size: 15px;
+}
+
+.centered {
+    text-align: center;
+}
+
+hr {
+    display: block;
+    height: 1px;
+    border: 0;
+    border-top: 1px solid #ebeced;
+    margin: 1em 0;
+    padding: 0;
+}
+
+/* LINKS */
+
+a {
+    color: #166b71;
+    word-wrap: break-word;
+    -webkit-transition: color 0.1s ease-in, background 0.1s ease-in;
+    -moz-transition: color 0.1s ease-in, background 0.1s ease-in;
+    -ms-transition: color 0.1s ease-in, background 0.1s ease-in;
+    -o-transition: color 0.1s ease-in, background 0.1s ease-in;
+    transition: color 0.1s ease-in, background 0.1s ease-in;
+}
+
+a:hover,
+a:focus {
+    color: #22a8b1;
+    text-decoration: none;
+    outline: 0;
+}
+
+a:before,
+a:after {
+    -webkit-transition: color 0.1s ease-in, background 0.1s ease-in;
+    -moz-transition: color 0.1s ease-in, background 0.1s ease-in;
+    -ms-transition: color 0.1s ease-in, background 0.1s ease-in;
+    -o-transition: color 0.1s ease-in, background 0.1s ease-in;
+    transition: color 0.1s ease-in, background 0.1s ease-in;
+}
+
+/* BUTTONS */
+
+
+.btn {
+    font-size:20px;
+    position: relative;
+    padding: 10px 26px;
+    color: white;
+    border-radius: 2px;
+    cursor: pointer;
+    text-align: center;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    border: 0;
+    outline: none;
+    text-decoration: none;
+}
+
+.btn-primary {
+    font-weight: bold;
+    background-color: #22a8b1;
+    border-bottom: 2px solid #22a8b1;
+    box-shadow: inset 0 -2px #22a8b1;
+}
+
+.btn-primary:hover {
+    box-shadow: none;
+    background-color: #2bb9c2;
+    border-bottom: 2px solid #22a8b1;
+}
+
+.btn-default {
+    color: #303738;
+    background-color:  #eee;
+    border-bottom: 2px solid  #eee;
+    box-shadow: inset 0 -2px  #f5f5f5;
+}
+
+.btn-default:hover {
+    box-shadow: none;
+    background-color: #f5f5f5;
+    border-bottom: 2px solid #f5f5f5;
+}
+
+.glass {
+	background-color:rgba(0,0,0,0.3);
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 100;
+	text-align: center;
+}
+
+.information, .information-result {
+    position: absolute;
+    margin: auto;
+    width: 50%;
+    padding: 20px;
+    border-radius: 5px;
+    top: 33%;
+}
+
+.information {
+    background-color: #FFF;
+}
+
+.information-result {
+	background-color: #66c1c4;
+	background-image: url("http://www.transparenttextures.com/patterns/diagmonds.png");
+	text-align: center;
+}
