@@ -172,7 +172,7 @@
             canvas.height = _video.getBoundingClientRect().height;
             canvas.style.width = _video.getBoundingClientRect().width + "px";
             canvas.style.height = _video.getBoundingClientRect().height + "px";
-			gl = getWebGLContext(canvas,null,{noTitle:true});
+			gl = canvas.getContext("experimental-webgl");
 		    // setup GLSL program
 		    program = createProgramFromScripts(gl, ["green-vertex-shader", "green-fragment-shader"]);
 		    gl.useProgram(program);
